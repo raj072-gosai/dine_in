@@ -1,0 +1,151 @@
+<?php
+session_start();
+require"../db.php";
+
+// Initialize or update the current row index
+if (!isset($_SESSION['current_row'])) {
+    $_SESSION['current_row'] = 0;
+}
+
+// Fetch all rows from the display_items table
+$fetchSql = "SELECT * FROM display_items ORDER BY id";
+$result = $conn->query($fetchSql);
+$rows = $result->fetch_all(MYSQLI_ASSOC);
+
+// Total number of rows
+$totalRows = count($rows);
+
+// Handle button actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['previous'])) {
+        // Go to the previous row
+        if ($_SESSION['current_row'] > 0) {
+            $_SESSION['current_row']--;
+        }
+    } elseif (isset($_POST['next'])) {
+        // Go to the next row
+        if ($_SESSION['current_row'] < $totalRows - 1) {
+            $_SESSION['current_row']++;
+        }
+    } elseif (isset($_POST['clear'])) {
+        // Clear the current row
+        if ($totalRows > 0) {
+            $currentRow = $rows[$_SESSION['current_row']];
+            $deleteSql = "DELETE FROM display_items WHERE id = ?";
+            $stmt = $conn->prepare($deleteSql);
+            $stmt->bind_param("i", $currentRow['id']);
+            if (!$stmt->execute()) {
+                die("Error deleting row: " . $stmt->error);
+            }
+
+            // Reload rows and update session index
+            header("Location: display.php");
+            exit;
+        }
+    }
+}
+
+// Determine the current row data
+$currentRowData = $totalRows > 0 ? $rows[$_SESSION['current_row']] : null;
+
+$conn->close();
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Items</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            width: 50%;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .data {
+            margin-bottom: 20px;
+        }
+        .data p {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #555;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        .buttons button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .buttons button.previous {
+            background-color: #007bff;
+            color: white;
+        }
+        .buttons button.next {
+            background-color: #28a745;
+            color: white;
+        }
+        .buttons button.clear {
+            background-color: #dc3545;
+            color: white;
+        }
+        .buttons button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Display Items</h1>
+        <div class="data">
+            <?php if ($currentRowData): ?>
+                <p><strong>Table Number:</strong> <?php echo htmlspecialchars($currentRowData['table_number']); ?></p>
+                <p><strong>Order Number:</strong> <?php echo htmlspecialchars($currentRowData['order_number']); ?></p>
+                <p><strong>Food Item:</strong> <?php echo htmlspecialchars($currentRowData['food_item']); ?></p>
+                <p><strong>Quantity:</strong> <?php echo htmlspecialchars($currentRowData['quantity']); ?></p>
+            <?php else: ?>
+                <p>No data available.</p>
+            <?php endif; ?>
+        </div>
+        <div class="buttons">
+            <form method="POST">
+                <button type="submit" name="previous" class="previous" 
+                        <?php echo ($_SESSION['current_row'] <= 0) ? 'disabled' : ''; ?>>
+                    Previous
+                </button>
+                <button type="submit" name="clear" class="clear" 
+                        <?php echo ($totalRows === 0) ? 'disabled' : ''; ?>>
+                    Clear
+                </button>
+                <button type="submit" name="next" class="next" 
+                        <?php echo ($_SESSION['current_row'] >= $totalRows - 1) ? 'disabled' : ''; ?>>
+                    Next
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
