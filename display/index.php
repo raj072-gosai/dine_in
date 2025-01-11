@@ -104,13 +104,28 @@
         }
 
         .card {
-            background: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-            padding: 15px;
-            text-align: center;
-            font-size: 1rem;
-        }
+        background: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+        padding: 15px;
+        text-align: center;
+        font-size: 1rem;
+        max-height: 200px; /* Set a maximum height for the card */
+        overflow-y: auto; /* Enable vertical scrolling if content exceeds max height */
+    }
+
+    .card::-webkit-scrollbar {
+        width: 6px; /* Customize scrollbar width */
+    }
+
+    .card::-webkit-scrollbar-thumb {
+        background-color: #007bff; /* Customize scrollbar thumb color */
+        border-radius: 5px; /* Rounded corners for scrollbar thumb */
+    }
+
+    .card::-webkit-scrollbar-track {
+        background: #f3f4f6; /* Customize scrollbar track color */
+    }
 
         .card.selected {
             border: 2px solid #007bff;

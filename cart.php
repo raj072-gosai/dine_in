@@ -7,6 +7,12 @@ if (!$tableNumber) {
     die("Table number is required.");
 }
 
+// Check if an order number already exists in the session for the table, if not, generate one
+if (!isset($_SESSION['order_number_' . $tableNumber])) {
+    $_SESSION['order_number_' . $tableNumber] = 'ORD' . time() . rand(1000, 9999);
+}
+$orderNumber = $_SESSION['order_number_' . $tableNumber];
+
 // Fetch cart items
 $cartSql = "SELECT c.id, c.menu_id, c.quantity, m.name, m.price 
             FROM cart c
@@ -16,6 +22,76 @@ $stmt = $conn->prepare($cartSql);
 $stmt->bind_param("i", $tableNumber);
 $stmt->execute();
 $cartItems = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Fetch orders placed for the table
+$orderSql = "SELECT o.food_item, o.quantity, o.price
+             FROM orders o
+             WHERE o.order_number = ?";
+$stmt = $conn->prepare($orderSql);
+$stmt->bind_param("s", $orderNumber);
+$stmt->execute();
+$ordersPlaced = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Handle Generate Bill button
+if (isset($_GET['generate_bill'])) {
+    // Copy orders to order_details
+    $copySql = "INSERT INTO order_details (table_number, order_number, food_item, quantity, price)
+                SELECT table_number, order_number, food_item, quantity, price
+                FROM orders
+                WHERE order_number = ?";
+    $stmt = $conn->prepare($copySql);
+    $stmt->bind_param("s", $orderNumber);
+    if (!$stmt->execute()) {
+        die("Error copying orders to order_details: " . $stmt->error);
+    }
+
+    // Delete orders for the current order number
+    $deleteOrdersSql = "DELETE FROM orders WHERE order_number = ?";
+    $stmt = $conn->prepare($deleteOrdersSql);
+    $stmt->bind_param("s", $orderNumber);
+    if (!$stmt->execute()) {
+        die("Error deleting orders: " . $stmt->error);
+    }
+
+    echo "<script>alert('Bill Generated Successfully!');</script>";
+    header("Location: view_bill.php?table_number=$tableNumber");
+    exit;
+}
+
+// Handle Place Order button
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
+    foreach ($cartItems as $item) {
+        // Insert into orders table
+        $insertOrderSql = "INSERT INTO orders (table_number, order_number, food_item, quantity, price) 
+                           VALUES (?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($insertOrderSql);
+        $stmt->bind_param("issid", $tableNumber, $orderNumber, $item['name'], $item['quantity'], $item['price']);
+        if (!$stmt->execute()) {
+            die("Error inserting into orders: " . $stmt->error);
+        }
+
+        // Insert into display_items table
+        $displaySql = "INSERT INTO display_items (table_number, order_number, food_item, quantity) 
+                       VALUES (?, ?, ?, ?)";
+        $stmt = $conn->prepare($displaySql);
+        $stmt->bind_param("issi", $tableNumber, $orderNumber, $item['name'], $item['quantity']);
+        if (!$stmt->execute()) {
+            die("Error inserting into display_items: " . $stmt->error);
+        }
+    }
+
+    // Clear the cart for the table
+    $clearCartSql = "DELETE FROM cart WHERE table_number = ?";
+    $stmt = $conn->prepare($clearCartSql);
+    $stmt->bind_param("i", $tableNumber);
+    if (!$stmt->execute()) {
+        die("Error clearing cart: " . $stmt->error);
+    }
+
+    echo "<script>alert('Order Placed Successfully!');</script>";
+    header("Location: cart.php?table_number=$tableNumber");
+    exit;
+}
 
 $conn->close();
 ?>
@@ -73,8 +149,8 @@ $conn->close();
             <p>Your cart is empty.</p>
         <?php endif; ?>
 
-         <!-- Place Order -->
-         <form method="POST">
+        <!-- Place Order -->
+        <form method="POST">
             <button type="submit" name="place_order" class="btn btn-success">Place Order</button>
         </form>
 

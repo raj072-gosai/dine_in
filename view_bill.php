@@ -9,9 +9,9 @@ if (!$tableNumber) {
 }
 
 // Check if the order number exists for this table in the session
-if (!isset($_SESSION['order_number_' . $tableNumber])) {
-    die("You must confirm the order before viewing the bill.");
-}
+//if (!isset($_SESSION['order_number_' . $tableNumber])) {
+  //  die("You must confirm the order before viewing the bill.");
+//}
 
 $orderNumber = $_SESSION['order_number_' . $tableNumber];
 
